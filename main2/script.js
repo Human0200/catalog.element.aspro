@@ -4037,3 +4037,32 @@ window.JCCatalogElement.prototype.allowViewedCount = function(update)
 	}
 };
 })(window);
+
+
+/* --- Video cover handler: replace cover with real video on click --- */
+$(document).on('click', '.js-video-cover-btn', function(){
+    var $btn = $(this);
+    var type = $btn.data('type');
+    var src = ($btn.data('src') || '').toString();
+    var w = $btn.data('w');
+    var h = $btn.data('h');
+    var $li = $btn.closest('li');
+
+    if(!src){ return; }
+
+    if(type === 'rutube'){
+        // add autoplay if missing
+        var sep = src.indexOf('?') === -1 ? '?' : '&';
+        var finalSrc = src + sep + 'autoplay=1';
+        var html = '<iframe width="560" height="340" src="'+finalSrc+'" frameborder="0" allow="autoplay; fullscreen" allowfullscreen></iframe>';
+        $li.html(html);
+    }else if(type === 'file'){
+        var wh = '';
+        if(w){ wh += ' width="'+w+'"'; }
+        if(h){ wh += ' height="'+h+'"'; }
+        var html = '<video'+wh+' controls playsinline preload="metadata"><source src="'+src+'"></video>';
+        $li.html(html);
+        var $v = $li.find('video').get(0);
+        if($v && $v.play){ try{ $v.play(); }catch(e){} }
+    }
+});

@@ -1,4 +1,10 @@
 <?if(!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED!==true)die();?>
+<?php if (!empty($arResult['PROPERTIES']['PREVIEW_VIDEO_IMG']['VALUE'])): ?>
+<script>
+  window.__videoPoster = "<?=CUtil::JSEscape(CFile::GetPath($arResult['PROPERTIES']['OBLOJKA_DLYA_VIDEO']['VALUE']))?>";
+</script>
+<?php endif; ?>
+
 <? //echo '<!--*******'.print_r($arResult, 1).'-->'; ?>
 <div class="basket_props_block" id="bx_basket_div_<?=$arResult["ID"];?>" style="display: none;">
     <?if (!empty($arResult['PRODUCT_PROPERTIES_FILL'])){
@@ -701,7 +707,7 @@ setViewedProduct(<?=$arResult['ID']?>, <?=CUtil::PhpToJSObject($arViewedData, fa
 						$videoIframe = '';
 						$showVideoFirst = $arResult['PROPERTIES']['SHOW_VIDEO_FIRST']['VALUE'] == 'Y';
 						if(!empty($arResult['PROPERTIES']['PREVIEW_VIDEO_IMG']['VALUE'])){
-							$imgPreVideo = '<img src="'.CFile::GetPath($arResult['PROPERTIES']['PREVIEW_VIDEO_IMG']['VALUE']).'" />';
+							$imgPreVideo = '<img src="'.CFile::GetPath($arResult['PROPERTIES']['OBLOJKA_DLYA_VIDEO']['VALUE']).'" />';
 						} else {
 							$imgPreVideo = '<img src="/images/video3.svg" />';
 						}
@@ -2294,4 +2300,359 @@ if (videoSlides.length > 0) {
 
 }
 
+</style>
+
+
+<script>
+(function(){
+  function setPosterOn(el, poster){
+    if(!el || !poster) return;
+    try{
+      if(!el.getAttribute('poster')){
+        el.setAttribute('poster', poster);
+      }else{
+        // if poster differs, update
+        if(el.getAttribute('poster') !== poster){ el.setAttribute('poster', poster); }
+      }
+      el.setAttribute('preload', 'metadata');
+      el.setAttribute('playsinline', '');
+      // If not started yet, refresh frame so poster becomes visible
+      if (el.readyState > 0 && el.paused) {
+        try { el.load(); } catch(e){}
+      }
+    }catch(e){}
+  }
+
+  function applyPosterNow(){
+    var poster = (window.__videoPoster || '').toString();
+    if(!poster) return;
+    document.querySelectorAll('.video-slide video').forEach(function(v){ setPosterOn(v, poster); });
+  }
+
+  // Run immediately after current microtask to ensure gallery markup exists
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(applyPosterNow, 0); });
+  } else {
+    setTimeout(applyPosterNow, 0);
+  }
+
+  // Observe for slides changing / re-render
+  var gallery = document.querySelector('.item_slider');
+  if (gallery && 'MutationObserver' in window) {
+    var mo = new MutationObserver(function(){
+      applyPosterNow();
+    });
+    mo.observe(gallery, { childList: true, subtree: true });
+  }
+
+  // Also re-apply on thumb clicks
+  document.addEventListener('click', function(e){
+    if(e.target.closest && e.target.closest('.item_slider .thumbs .slides_block li')){
+      setTimeout(applyPosterNow, 0);
+    }
+  });
+})();
+</script>
+
+
+<script>
+(function(){
+  function setPosterOn(el, poster){
+    if(!el || !poster) return;
+    try{
+      if(!el.getAttribute('poster')){
+        el.setAttribute('poster', poster);
+      }else if(el.getAttribute('poster') !== poster){
+        el.setAttribute('poster', poster);
+      }
+      el.setAttribute('preload', 'metadata');
+      el.setAttribute('playsinline', '');
+
+      // Hide native controls initially
+      el.controls = false;
+      el.removeAttribute('controls');
+      el.classList.add('video--clickable');
+
+      // Ensure poster is shown
+      try { if (el.readyState > 0 && el.paused) el.load(); } catch(e){}
+
+      // Click to play: enable controls and start playback
+      if (!el.dataset._coverHandlerBound) {
+        el.addEventListener('click', function(){
+          try {
+            el.setAttribute('controls','');
+            el.controls = true;
+            el.play && el.play();
+          } catch(e){}
+        });
+        el.dataset._coverHandlerBound = '1';
+      }
+    }catch(e){}
+  }
+
+  function applyPosterNow(){
+    var poster = (window.__videoPoster || '').toString();
+    if(!poster) return;
+    document.querySelectorAll('.video-slide video').forEach(function(v){ setPosterOn(v, poster); });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(applyPosterNow, 0); });
+  } else {
+    setTimeout(applyPosterNow, 0);
+  }
+
+  var gallery = document.querySelector('.item_slider');
+  if (gallery && 'MutationObserver' in window) {
+    var mo = new MutationObserver(function(){ applyPosterNow(); });
+    mo.observe(gallery, { childList: true, subtree: true });
+  }
+
+  document.addEventListener('click', function(e){
+    if(e.target.closest && e.target.closest('.item_slider .thumbs .slides_block li')){
+      setTimeout(applyPosterNow, 0);
+    }
+  });
+})();
+</script>
+<style>
+  /* Optional: cursor hint */
+  .video--clickable { cursor: pointer; }
+</style>
+
+
+<script>
+(function(){
+  function wrap(el, wrapper){
+    el.parentNode.insertBefore(wrapper, el);
+    wrapper.appendChild(el);
+  }
+
+  function ensurePlayButton(container){
+    if (container.querySelector('.video-cover-playbtn')) return container.querySelector('.video-cover-playbtn');
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'video-cover-playbtn';
+    btn.setAttribute('aria-label', 'Смотреть видео');
+    container.appendChild(btn);
+    return btn;
+  }
+
+  function enhanceVideo(el, poster){
+    if(!el) return;
+    try{
+      if (poster) el.setAttribute('poster', poster);
+      el.setAttribute('preload', 'metadata');
+      el.setAttribute('playsinline', '');
+      el.removeAttribute('controls');
+
+      var parent = el.parentElement;
+      // Prefer li.video-slide as container if exists
+      if (parent && parent.tagName && !parent.classList.contains('video-cover-box')){
+        // If parent is not positioned, wrap to avoid breaking slider markup
+        var positioned = window.getComputedStyle(parent).position;
+        if (positioned !== 'relative' && positioned !== 'absolute' && positioned !== 'fixed'){
+          var box = document.createElement('div');
+          box.className = 'video-cover-box';
+          wrap(el, box);
+          parent = box;
+        } else {
+          parent.classList.add('video-cover-box');
+        }
+      }
+
+      var btn = ensurePlayButton(parent);
+      if (btn && !el.dataset._pbAttached){
+        var start = function(){
+          btn.style.display = 'none';
+          el.setAttribute('controls','');
+          el.controls = true;
+          try { el.play(); } catch(e){}
+        };
+        btn.addEventListener('click', function(e){ e.preventDefault(); start(); }, { once:true });
+        el.addEventListener('click', function(){ if (btn.style.display !== 'none') start(); }, { once:true });
+        el.dataset._pbAttached = '1';
+      }
+    }catch(e){}
+  }
+
+  function applyToAll(){
+    var poster = (window.__videoPoster || '').toString();
+    var nodes = document.querySelectorAll('.video-slide video, .product-video, .product-video-iframe + video');
+    nodes.forEach(function(v){ enhanceVideo(v, poster); });
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', applyToAll);
+  } else {
+    applyToAll();
+  }
+
+  var gallery = document.querySelector('.item_slider');
+  if (gallery && 'MutationObserver' in window){
+    new MutationObserver(function(){ applyToAll(); })
+      .observe(gallery, {childList:true, subtree:true});
+  }
+})();
+</script>
+
+<style>
+.video-cover-box{
+  position: relative;
+  display: block;
+  width: 100%;
+}
+.video-cover-box > video{
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Play button */
+.video-cover-playbtn{
+  all: unset;
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 74px; height: 74px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.55);
+  box-shadow: 0 10px 24px rgba(0,0,0,.25);
+  cursor: pointer;
+  z-index: 3;
+}
+.video-cover-playbtn::before{
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-35%,-50%);
+  width: 0; height: 0;
+  border-left: 24px solid #fff;
+  border-top: 15px solid transparent;
+  border-bottom: 15px solid transparent;
+}
+.video-cover-playbtn:focus-visible{
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+</style>
+
+
+<script>
+(function(){
+  function wrapOverlayForRutube(ifr){
+    if(!ifr || ifr.dataset._rtbDone) return;
+
+    var li = ifr.closest('li.video-slide') || ifr.parentElement;
+    if(!li) return;
+    li.style.position = li.style.position || 'relative';
+    var h = ifr.clientHeight || parseInt(ifr.getAttribute('height')) || 0;
+    if(h) li.style.minHeight = h + 'px';
+
+    var orig = ifr.getAttribute('src') || '';
+    if(!orig) return;
+    if(!ifr.dataset.origSrc) ifr.dataset.origSrc = orig;
+    try { ifr.setAttribute('src',''); } catch(e){}
+    ifr.style.display = 'none';
+    ifr.style.pointerEvents = 'none';
+
+    var poster = (window.__videoPoster || '').toString();
+    var overlay = document.createElement('div');
+    overlay.className = 'media-cover-overlay';
+    overlay.style.zIndex = '3';
+
+    if(poster){
+      var img = document.createElement('img');
+      img.className = 'media-cover-img';
+      img.src = poster;
+      overlay.appendChild(img);
+    }
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'media-cover-playbtn';
+    btn.setAttribute('aria-label','Смотреть видео');
+    overlay.appendChild(btn);
+
+    li.appendChild(overlay);
+
+    function addAutoplay(src){
+      try{
+        var u = new URL(src, location.href);
+        u.searchParams.set('autoplay','1');
+        u.searchParams.delete('mute');
+        return u.toString();
+      }catch(e){
+        var sep = src.indexOf('?') === -1 ? '?' : '&';
+        return src + sep + 'autoplay=1';
+      }
+    }
+
+    var start = function(e){
+      if(e) e.preventDefault();
+      var src = addAutoplay(ifr.dataset.origSrc || orig);
+      try { ifr.setAttribute('src', src); } catch(e){}
+      ifr.style.display = '';
+      ifr.style.pointerEvents = '';
+      overlay.remove();
+    };
+
+    overlay.addEventListener('click', start, { once: true });
+
+    ifr.dataset._rtbDone = '1';
+  }
+
+  function run(){
+    document.querySelectorAll(
+      'li.video-slide iframe#video-rutube,' +
+      'li.video-slide iframe#video-rutube-mobile,' +
+      'li.video-slide iframe[src*="rutube.ru/play/embed"]'
+    ).forEach(wrapOverlayForRutube);
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', run);
+  } else {
+    run();
+  }
+
+  var gallery = document.querySelector('.item_slider');
+  if(gallery && 'MutationObserver' in window){
+    new MutationObserver(run).observe(gallery, {childList:true, subtree:true});
+  }
+})();
+</script>
+
+<style>
+.media-cover-overlay{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+}
+.media-cover-img{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.media-cover-playbtn{
+  all:unset;
+  width:74px; height:74px;
+  border-radius:50%;
+  background:rgba(0,0,0,.55);
+  box-shadow:0 10px 24px rgba(0,0,0,.25);
+  cursor:pointer;
+  z-index:4;
+}
+.media-cover-playbtn::before{
+  content:"";
+  position:relative;
+  left:6px;
+  display:inline-block;
+  width:0; height:0;
+  border-left:24px solid #fff;
+  border-top:15px solid transparent;
+  border-bottom:15px solid transparent;
+}
 </style>
